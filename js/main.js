@@ -5,6 +5,7 @@
 
 import { ExploreTab } from "./ui/explore.js";
 import { MeasureTab } from "./ui/measure.js";
+import { CompareTab } from "./ui/compare.js";
 import { $, store } from "./ui/common.js";
 
 const PAGES = ["explore", "measure", "compare", "about"];
@@ -21,6 +22,7 @@ const factories = {
       return clipped;
     },
   }),
+  compare: () => new CompareTab(),
 };
 
 function writeUrl() {

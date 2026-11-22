@@ -237,11 +237,13 @@
         <p>Regulation steel-tip board: bullseye radius 6.35 mm, outer bull 15.9 mm, treble ring 99–107 mm, double ring 162–170 mm. Wire thickness is ignored.</p>
 
         <h3>Some results</h3>
+        <p>For a round spread (σx = σy = σ) and no bias:</p>
         <ul>
-          <li>Below about σ = 15 mm, treble 20 is the best aim (slightly towards the 5 for some spreads).</li>
-          <li>Between roughly 15 and 40 mm, the treble 19 area wins: its neighbours, 7 and 16, are much kinder than 1 and 5.</li>
-          <li>Above that, aim lower-left of centre, so that misses still land on the board.</li>
+          <li><strong>σ up to about 17 mm:</strong> treble 20, drifting slightly towards the 5 as σ grows.</li>
+          <li><strong>About 18 to 30 mm:</strong> the treble 19 area. Its neighbours, 7 and 16, are much kinder than the 20's neighbours, 1 and 5.</li>
+          <li><strong>Wider than that:</strong> the aim slides inwards towards the 7 and 16, and for very wide spreads ends up just lower-left of the bull, so that misses still land on the board.</li>
         </ul>
+        <p>A spread that is tall rather than wide (good line, bad length) keeps treble 20 worthwhile for much longer: the 20 bed is long and narrow.</p>
 
         <h3>Source</h3>
         <p>This is a browser port of a Python script (kept in the repository under <code>reference/</code>), cross-checked against it to float precision. No data leaves your browser.</p>
