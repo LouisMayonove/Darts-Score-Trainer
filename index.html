@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Darts Score Trainer</title>
+  <meta name="description" content="Find where to aim on a dartboard to score the most, given how your darts spread. Measure your own throws and get your personal best aim point.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-10 -10 20 20'%3E%3Ccircle r='10' fill='%23141414'/%3E%3Ccircle r='8' fill='%23efe2bf'/%3E%3Ccircle r='6.2' fill='%231b8a43'/%3E%3Ccircle r='5.4' fill='%23efe2bf'/%3E%3Ccircle r='2' fill='%231b8a43'/%3E%3Ccircle r='1' fill='%23d32a2a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>Darts Score Trainer</h1>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button role="tab" id="tab-explore" data-page="explore" aria-selected="true" aria-controls="page-explore">Explore</button>
+      <button role="tab" id="tab-measure" data-page="measure" aria-selected="false" aria-controls="page-measure">Measure</button>
+      <button role="tab" id="tab-compare" data-page="compare" aria-selected="false" aria-controls="page-compare">Compare</button>
+      <button role="tab" id="tab-about" data-page="about" aria-selected="false" aria-controls="page-about">How it works</button>
+    </nav>
+    <button id="theme-toggle" class="icon-button" title="Theme: follow system" aria-label="Change theme">◐</button>
+  </header>
+
+  <main>
+    <!-- ================================================================ Explore -->
+    <section id="page-explore" class="page page-explore" role="tabpanel" aria-labelledby="tab-explore">
+      <aside class="controls">
+        <fieldset>
+          <legend>Your spread</legend>
+          <label for="ex-preset">Preset</label>
+          <select id="ex-preset">
+            <option value="">Custom</option>
+            <option value="5,5,0">Professional (σ 5 mm)</option>
+            <option value="10,10,0">Strong county player (σ 10 mm)</option>
+            <option value="16,16,0">League player (σ 16 mm)</option>
+            <option value="25,25,0">Pub player (σ 25 mm)</option>
+            <option value="40,40,0">Beginner (σ 40 mm)</option>
+            <option value="15,40,0">Good line, bad length (15 × 40 mm)</option>
+            <option value="40,15,0">Good length, bad line (40 × 15 mm)</option>
+          </select>
+
+          <div class="slider-row">
+            <label for="ex-sx">σx <span class="unit">left–right, mm</span></label>
+            <input type="number" id="ex-sx-num" min="1" max="100" step="0.5" aria-label="σx value">
+            <input type="range" id="ex-sx" min="1" max="100" step="0.5">
+          </div>
+          <div class="slider-row">
+            <label for="ex-sy">σy <span class="unit">up–down, mm</span></label>
+            <input type="number" id="ex-sy-num" min="1" max="100" step="0.5" aria-label="σy value">
+            <input type="range" id="ex-sy" min="1" max="100" step="0.5">
+          </div>
+          <label class="check"><input type="checkbox" id="ex-link"> Same spread both ways</label>
+          <div class="slider-row">
+            <label for="ex-rho">ρ <span class="unit">tilt / correlation</span></label>
+            <input type="number" id="ex-rho-num" min="-0.95" max="0.95" step="0.05" aria-label="ρ value">
+            <input type="range" id="ex-rho" min="-0.95" max="0.95" step="0.05">
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Aim bias</legend>
+          <p class="hint">Where your darts land on average, relative to where you aim. Set automatically from the Measure tab.</p>
+          <div class="slider-row">
+            <label for="ex-bx">Right (+) / left (−) <span class="unit">mm</span></label>
+            <input type="number" id="ex-bx-num" min="-60" max="60" step="1" aria-label="Horizontal bias value">
+            <input type="range" id="ex-bx" min="-60" max="60" step="1">
+          </div>
+          <div class="slider-row">
+            <label for="ex-by">Up (+) / down (−) <span class="unit">mm</span></label>
+            <input type="number" id="ex-by-num" min="-60" max="60" step="1" aria-label="Vertical bias value">
+            <input type="range" id="ex-by" min="-60" max="60" step="1">
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Display</legend>
+          <label class="check"><input type="checkbox" id="ex-throws"> Show simulated darts</label>
+          <label class="check" id="ex-measured-row" hidden><input type="checkbox" id="ex-measured" checked> Show my recorded darts</label>
+          <div class="form-grid">
+            <label for="ex-res">Grid</label>
+            <select id="ex-res">
+              <option value="auto" selected>Auto</option>
+              <option value="2">2 mm (fastest)</option>
+              <option value="1">1 mm</option>
+              <option value="0.5">0.5 mm (finest)</option>
+            </select>
+          </div>
+          <div class="button-row">
+            <button id="ex-reset">Reset</button>
+            <button id="ex-share" title="Copy a link to these settings">Copy link</button>
+          </div>
+        </fieldset>
+      </aside>
+
+      <div class="stage">
+        <div class="board-wrap">
+          <canvas id="ex-board" class="board" aria-label="Expected score heatmap. Hover to read values, click to pin an aim point."></canvas>
+          <div class="colorbar-box"><canvas id="ex-colorbar" class="colorbar" aria-hidden="true"></canvas></div>
+        </div>
+        <p class="readout" id="ex-hover">Hover over the board to read the expected score at any aim point. Click to pin it.</p>
+      </div>
+
+      <aside class="results">
+        <div class="card best-card">
+          <div class="card-label">Best aim</div>
+          <div class="best-region" id="ex-best-region">…</div>
+          <div class="best-value"><span id="ex-best-value">–</span> <span class="unit">points per dart</span></div>
+          <dl class="facts">
+            <dt>Per visit (3 darts)</dt><dd id="ex-best-visit">–</dd>
+            <dt>Aim point</dt><dd id="ex-best-xy">–</dd>
+            <dt title="200,000 simulated throws at the best aim point">Simulation check</dt><dd id="ex-mc">–</dd>
+          </dl>
+        </div>
+        <div class="card">
+          <div class="card-label">Compare targets</div>
+          <table class="compare-table">
+            <thead><tr><th>Aim at</th><th>pts/dart</th><th>vs best</th></tr></thead>
+            <tbody id="ex-targets"></tbody>
+          </table>
+          <p class="hint" id="ex-pin-hint">Click the board to add your own aim point to this table.</p>
+        </div>
+        <p class="status" id="ex-status" aria-live="polite"></p>
+      </aside>
+    </section>
+
+    <!-- ================================================================ Measure -->
+    <section id="page-measure" class="page page-measure" role="tabpanel" aria-labelledby="tab-measure" hidden>
+      <aside class="controls">
+        <fieldset>
+          <legend>1. Pick a target</legend>
+          <div class="form-grid">
+            <label for="ms-target">Throw at</label>
+            <select id="ms-target">
+              <option value="bull">Bull</option>
+              <option value="T20">Treble 20</option>
+              <option value="T19">Treble 19</option>
+              <option value="T18">Treble 18</option>
+              <option value="D20">Double 20</option>
+              <option value="D16">Double 16</option>
+              <option value="S20">Single 20</option>
+              <option value="custom">Other…</option>
+            </select>
+            <label for="ms-custom" id="ms-custom-label" hidden>Target</label>
+            <input type="text" id="ms-custom" placeholder="D8, T17, S5 or x,y in mm" hidden>
+          </div>
+          <button id="ms-pick" class="wide">Pick target on the board</button>
+          <p class="error" id="ms-target-error" hidden></p>
+        </fieldset>
+        <fieldset>
+          <legend>2. Record your darts</legend>
+          <p class="hint">Throw 30 or more darts at the target, all aimed the same way. Click (or tap) where each one landed; drag to fine-tune. Right-click or <kbd>Ctrl</kbd>+<kbd>Z</kbd> undoes.</p>
+          <div class="dart-count"><span id="ms-count">0</span> darts recorded</div>
+          <div class="button-row">
+            <button id="ms-undo">Undo</button>
+            <button id="ms-clear">Clear</button>
+          </div>
+          <div class="button-row">
+            <button id="ms-save">Save CSV</button>
+            <label class="button" for="ms-load">Load CSV</label>
+            <input type="file" id="ms-load" accept=".csv,.txt,text/csv,text/plain" hidden>
+          </div>
+          <p class="hint">Files use the same format as the Python script (<code>x_mm,y_mm</code>, origin at the bull, y up).</p>
+        </fieldset>
+      </aside>
+
+      <div class="stage">
+        <div class="board-wrap">
+          <canvas id="ms-board" class="board crosshair" aria-label="Dartboard. Click where each dart landed."></canvas>
+        </div>
+        <p class="readout" id="ms-hint">Click where your first dart landed.</p>
+      </div>
+
+      <aside class="results">
+        <div class="card">
+          <div class="card-label">3. Your throwing pattern</div>
+          <dl class="facts" id="ms-fit">
+            <dt>Average miss</dt><dd id="ms-bias">–</dd>
+            <dt>Spread σx / σy</dt><dd id="ms-sigma">–</dd>
+            <dt>Tilt ρ</dt><dd id="ms-rho">–</dd>
+          </dl>
+          <p class="hint">The solid ellipse holds about 39% of your darts, the dashed one about 86%.</p>
+          <p class="warning" id="ms-note" hidden></p>
+        </div>
+        <div class="card best-card" id="ms-report" hidden>
+          <div class="card-label">Your best aim</div>
+          <div class="best-region" id="ms-best-region">…</div>
+          <div class="best-value"><span id="ms-best-value">–</span> <span class="unit">points per dart</span></div>
+          <table class="compare-table">
+            <thead><tr><th>Aim at</th><th>pts/dart</th><th>vs best</th></tr></thead>
+            <tbody id="ms-targets"></tbody>
+          </table>
+          <button id="ms-explore" class="primary wide">Open in Explore</button>
+        </div>
+      </aside>
+    </section>
+
+    <!-- ================================================================ Compare -->
+    <section id="page-compare" class="page page-compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+      <div class="compare-toolbar">
+        <div class="pattern-list" id="cmp-patterns"></div>
+        <div class="button-row">
+          <button id="cmp-add">Add pattern</button>
+          <button id="cmp-defaults">Reset to defaults</button>
+          <label class="check"><input type="checkbox" id="cmp-shared"> Same colour scale</label>
+          <label class="check"><input type="checkbox" id="cmp-throws"> Simulated darts</label>
+        </div>
+      </div>
+      <div class="compare-grid" id="cmp-grid"></div>
+    </section>
+
+    <!-- ================================================================ About -->
+    <section id="page-about" class="page page-about" role="tabpanel" aria-labelledby="tab-about" hidden>
+      <article class="prose">
+        <h2>Where should you aim?</h2>
+        <p>Treble 20 is the highest-scoring bed on the board, but it is surrounded by the 1 and the 5. If your darts spread widely, aiming at it costs you more in misses than it earns in trebles. This app works out, for any throwing spread, the aim point that gives the highest <em>average</em> score per dart.</p>
+
+        <h3>The model</h3>
+        <p>Each dart lands at the point you aim at, plus a random error that follows a two-dimensional normal (Gaussian) distribution:</p>
+        <p class="formula">landing = aim + bias + error, &nbsp; error ~ N(0, Σ), &nbsp; Σ = [[σx², ρσxσy], [ρσxσy, σy²]]</p>
+        <ul>
+          <li><strong>σx</strong> and <strong>σy</strong> are the standard deviations of your left–right and up–down errors, in millimetres. About 68% of darts land within one σ of the centre along each axis.</li>
+          <li><strong>ρ</strong> tilts the spread: with ρ &gt; 0 darts that go right also tend to go high.</li>
+          <li><strong>bias</strong> is your average miss. If your darts land 10 mm low on average, you should aim 10 mm higher than the spot you want to hit.</li>
+        </ul>
+
+        <h3>The heatmap</h3>
+        <p>Every pixel of the Explore heatmap shows the expected score of one dart when you aim there: the score of every point of the board, weighted by the probability that your dart lands there. That is the board's score function convolved with your Gaussian, computed exactly on a 1 mm grid with a fast Fourier transform. The star marks the best pixel, and 200,000 simulated throws at that point confirm the value.</p>
+
+        <h3>Measuring your own spread</h3>
+        <ol>
+          <li>On the Measure tab, pick a target (the bull is a good choice: it is easy to aim at consistently).</li>
+          <li>Throw at it 30 or more times. After each throw, or each visit, click where the darts landed.</li>
+          <li>The app fits your bias, σx, σy and ρ, and shows the best aim point for <em>you</em>. With fewer than 20 darts the estimates are rough.</li>
+        </ol>
+        <p>Your darts are saved in this browser only. Use <em>Save CSV</em> to keep them, or to load them into the original Python script.</p>
+
+        <h3>Board dimensions</h3>
+        <p>Regulation steel-tip board: bullseye radius 6.35 mm, outer bull 15.9 mm, treble ring 99–107 mm, double ring 162–170 mm. Wire thickness is ignored.</p>
+
+        <h3>Some results</h3>
+        <ul>
+          <li>Below about σ = 15 mm, treble 20 is the best aim (slightly towards the 5 for some spreads).</li>
+          <li>Between roughly 15 and 40 mm, the treble 19 area wins: its neighbours, 7 and 16, are much kinder than 1 and 5.</li>
+          <li>Above that, aim lower-left of centre, so that misses still land on the board.</li>
+        </ul>
+
+        <h3>Source</h3>
+        <p>This is a browser port of a Python script (kept in the repository under <code>reference/</code>), cross-checked against it to float precision. No data leaves your browser.</p>
+      </article>
+    </section>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
