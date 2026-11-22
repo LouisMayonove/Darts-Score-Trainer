@@ -73,7 +73,7 @@ function directExpected(ax, ay, sx, sy, rho, res) {
 test("FFT map equals the direct sum at sample points", () => {
   const mapper = new ExpectedScoreMapper();
   for (const [sx, sy, rho] of [[4, 4, 0], [12, 25, 0.4], [30, 18, -0.7]]) {
-    const M = mapper.compute({ sx, sy, rho, res: 2, view: 200, kernel: "discrete" });
+    const M = mapper.compute({ sx, sy, rho, res: 2, view: 200, kernel: "discrete", boardSamples: 1 });
     assert.equal(M.kernel, "discrete");
     for (const [x, y] of [[0, 0], [0, 102], [-40, 96], [150, -60], [190, 190], [-200, 0]]) {
       const want = directExpected(x, y, sx, sy, rho, 2);
@@ -120,6 +120,22 @@ test("map agrees with a Monte Carlo simulation at the best aim", () => {
   const mc = monteCarlo(M.best, 20, 30, 0.3, 200000, new Rng(7));
   assert.ok(Math.abs(mc.mean - M.bestValue) < 4 * mc.se + 0.05,
     `map ${M.bestValue}, MC ${mc.mean} +/- ${mc.se}`);
+});
+
+test("cell-averaged board keeps tight spreads accurate", () => {
+  // Point sampling the board overstates a 5 mm thrower at T20 by ~0.5 points
+  // on a 1 mm grid; averaging over each cell brings it under 0.1.
+  const mapper = new ExpectedScoreMapper();
+  const M = mapper.compute({ sx: 5, sy: 5, res: 1 });
+  const P = mapper.compute({ sx: 5, sy: 5, res: 1, boardSamples: 1 });
+  let worstAvg = 0, worstPoint = 0;
+  for (const aim of [M.best, [0, 103], [-31, -98], [0, 0], [40, 60], [0, 166]]) {
+    const mc = monteCarlo(aim, 5, 5, 0, 300000, new Rng(11)).mean;
+    worstAvg = Math.max(worstAvg, Math.abs(expectedAt(M, ...aim) - mc));
+    worstPoint = Math.max(worstPoint, Math.abs(expectedAt(P, ...aim) - mc));
+  }
+  assert.ok(worstAvg < 0.1, `cell-averaged worst error ${worstAvg}`);
+  assert.ok(worstPoint > 3 * worstAvg, `point sampling worst error ${worstPoint}`);
 });
 
 test("map metadata and interpolation", () => {

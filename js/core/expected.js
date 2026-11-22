@@ -16,6 +16,12 @@
 //   "discrete": the sampled Gaussian truncated at 4 sigma and renormalised,
 //       transformed with an FFT. Identical to the Python script.
 // The two differ by the Gaussian mass beyond 4 sigma: below 0.01 points.
+//
+// The board grid stores, for each cell, the score averaged over a k x k
+// sub-grid of the cell (boardSamples = k, default 4). Point sampling
+// (k = 1, what the Python script does) puts ring edges up to res/2 off,
+// which overstates the score of tight spreads aimed at a treble by about
+// a point per dart at 1 mm resolution.
 
 import { score, R_DOUBLE_OUT } from "./board.js";
 import { fft1d, fftColumns, nextPow2 } from "./fft.js";
@@ -115,18 +121,34 @@ export class ExpectedScoreMapper {
   }
 
   /** FFT of the score grid S, centred on index 0 (wrapped). */
-  boardSpectrum(res, N) {
-    const key = `${res}|${N}`;
+  boardSpectrum(res, N, samples = 4) {
+    const key = `${res}|${N}|${samples}`;
     let cached = this.boardCache.get(key);
     if (cached) return cached;
-    const m = Math.ceil(R_DOUBLE_OUT / res);
+    const m = Math.ceil(R_DOUBLE_OUT / res) + (samples > 1 ? 1 : 0);
     const re = new Float64Array(N * N);
     const im = new Float64Array(N * N);
+    const offsets = [];
+    for (let u = 0; u < samples; u++) offsets.push(((u + 0.5) / samples - 0.5) * res);
+    const w = 1 / (samples * samples);
     const rows = [];
     for (let i = -m; i <= m; i++) {
       const row = wrap(i, N);
       rows.push(row);
-      for (let j = -m; j <= m; j++) re[row * N + wrap(j, N)] = score(j * res, i * res);
+      for (let j = -m; j <= m; j++) {
+        let v = score(j * res, i * res);
+        if (samples > 1) {
+          // Only cells crossed by a wire need sub-sampling: check the corners.
+          const x0 = (j - 0.5) * res, x1 = (j + 0.5) * res;
+          const y0 = (i - 0.5) * res, y1 = (i + 0.5) * res;
+          if (score(x0, y0) !== v || score(x1, y0) !== v || score(x0, y1) !== v || score(x1, y1) !== v) {
+            v = 0;
+            for (const oy of offsets) for (const ox of offsets) v += score(j * res + ox, i * res + oy);
+            v *= w;
+          }
+        }
+        re[row * N + wrap(j, N)] = v;
+      }
     }
     forward2d(re, im, N, rows);
     cached = { re, im };
@@ -143,12 +165,12 @@ export class ExpectedScoreMapper {
    * E[i * n + j] is the expected score when the darts are centred on
    * (axis0 + j * res, axis0 + i * res).
    */
-  compute({ sx, sy, rho = 0, res = 1, view = 200, kernel = "analytic" }) {
+  compute({ sx, sy, rho = 0, res = 1, view = 200, kernel = "analytic", boardSamples = 4 }) {
     if (!(sx > 0 && sy > 0)) throw new Error("sigma must be positive");
     if (!(rho > -1 && rho < 1)) throw new Error("rho must be strictly between -1 and 1");
     const v = Math.ceil(view / res - 1e-9);
     const n = 2 * v + 1;
-    const m = Math.ceil(R_DOUBLE_OUT / res);
+    const m = Math.ceil(R_DOUBLE_OUT / res) + 1;
     const A = kernel === "analytic" ? aliasTerms(sx, sy, rho, res) : -1;
     const useAnalytic = A >= 0;
 
@@ -156,7 +178,7 @@ export class ExpectedScoreMapper {
     // leave room for 5 sigma of tail (mass beyond: < 4e-6) before wrapping.
     const h = Math.ceil(((useAnalytic ? 5 : 4) * Math.max(sx, sy)) / res);
     const N = nextPow2(Math.max(v + m + h + 1, 2 * h + 1, 2 * m + 1));
-    const board = this.boardSpectrum(res, N);
+    const board = this.boardSpectrum(res, N, boardSamples);
     const br = board.re, bi = board.im;
 
     const pr = new Float64Array(N * N);

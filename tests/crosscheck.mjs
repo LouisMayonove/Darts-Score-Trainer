@@ -1,7 +1,8 @@
 // Cross-check the JS engine against the original Python script.
 //
 // Computes expected-score maps for a range of spreads, correlations and grid
-// resolutions in both engines and compares them point by point:
+// resolutions in both engines and compares them point by point, with the
+// board point-sampled as in Python (boardSamples: 1):
 //   - the "discrete" JS kernel must match Python to float precision;
 //   - the default "analytic" kernel must stay within 0.01 points;
 //   - both must pick the same best aim point (or one of equal value).
@@ -51,7 +52,7 @@ try {
     const label = `sx=${c.sx} sy=${c.sy} rho=${c.rho} res=${c.res}`;
 
     for (const kernel of ["discrete", "analytic"]) {
-      const M = mapper.compute({ ...c, kernel });
+      const M = mapper.compute({ ...c, kernel, boardSamples: 1 });
       if (M.n !== ref.n || Math.abs(M.axis0 - ref.axis0) > 1e-9) {
         console.log(`FAIL ${label} [${kernel}]: grid ${M.n}@${M.axis0} vs ${ref.n}@${ref.axis0}`);
         failures++;
