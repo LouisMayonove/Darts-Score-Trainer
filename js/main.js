@@ -4,6 +4,7 @@
 // The Explore settings live in the URL so a link reproduces the view.
 
 import { ExploreTab } from "./ui/explore.js";
+import { MeasureTab } from "./ui/measure.js";
 import { $, store } from "./ui/common.js";
 
 const PAGES = ["explore", "measure", "compare", "about"];
@@ -11,13 +12,16 @@ const tabs = {};
 let current = null;
 
 const explore = new ExploreTab({ onStateChange: () => writeUrl() });
-const lazy = {};               // tabs created on first visit
-const factories = {};
-
-/** Register a tab that is only built the first time it is shown. */
-export function registerTab(name, factory) {
-  factories[name] = factory;
-}
+const lazy = {};               // tabs built the first time they are shown
+const factories = {
+  measure: () => new MeasureTab({
+    openInExplore: (fit) => {
+      const clipped = explore.applyMeasured(fit);
+      show("explore");
+      return clipped;
+    },
+  }),
+};
 
 function writeUrl() {
   const hash = current === "explore" ? `#explore?${explore.toQuery()}` : `#${current}`;
@@ -40,7 +44,9 @@ function show(page, { fromUrl = false } = {}) {
 
 function readUrl() {
   const [page, query = ""] = location.hash.replace(/^#/, "").split("?");
-  if ((page || "explore") === "explore") explore.fromQuery(query);
+  const isExplore = (page || "explore") === "explore";
+  // Explore always needs a first map, even when the page opens elsewhere.
+  if (isExplore || !explore.map) explore.fromQuery(isExplore ? query : "");
   show(page || "explore", { fromUrl: true });
 }
 
@@ -83,7 +89,4 @@ $("theme-toggle").addEventListener("click", () => {
 });
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => applyTheme(theme));
 
-// Give other modules a chance to register lazy tabs before routing.
-queueMicrotask(readUrl);
-
-export { explore, show };
+readUrl();
